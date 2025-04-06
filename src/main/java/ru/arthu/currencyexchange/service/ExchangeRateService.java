@@ -3,6 +3,7 @@ package ru.arthu.currencyexchange.service;
 import ru.arthu.currencyexchange.dao.ExchangeRateDao;
 import ru.arthu.currencyexchange.dto.CurrencyDto;
 import ru.arthu.currencyexchange.dto.ExchangeRateDto;
+import ru.arthu.currencyexchange.exceptions.CurrencyCodeNotFoundException;
 import ru.arthu.currencyexchange.exceptions.ExchangeAlreadyExistException;
 import ru.arthu.currencyexchange.model.Currency;
 import ru.arthu.currencyexchange.model.ExchangeRate;
@@ -37,44 +38,27 @@ public class ExchangeRateService {
         ));
     }
 
-    public ExchangeRateDto createExchangeRate(Long baseCurrencyId, Long targetCurrencyId, BigDecimal rate)
-            throws ExchangeAlreadyExistException {
+    public ExchangeRateDto createExchangeRate(String baseCurrencyCode, String targetCurrencyCode, BigDecimal rate)
+            throws ExchangeAlreadyExistException, CurrencyCodeNotFoundException {
+
         if (rate.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Exchange rate must be positive");
         }
 
-        var baseCurrencyOpt = currencyService.getCurrencyById(baseCurrencyId);
-        var targetCurrencyOpt = currencyService.getCurrencyById(targetCurrencyId);
+        var baseCurrencyOpt = currencyService.getCurrencyByCode(baseCurrencyCode);
+        var targetCurrencyOpt = currencyService.getCurrencyByCode(targetCurrencyCode);
 
         if (baseCurrencyOpt.isEmpty() || targetCurrencyOpt.isEmpty()) {
-            throw new IllegalArgumentException("Base or target currency not found");
+            throw new CurrencyCodeNotFoundException();
         }
 
-        var baseCurrencyDto = baseCurrencyOpt.get();
-        var targetCurrencyDto = targetCurrencyOpt.get();
+        var exchangeRate = new ExchangeRate(baseCurrencyOpt.get(), targetCurrencyOpt.get(), rate);
+        var savedExchangeRate = exchangeRateDao.save(exchangeRate);
+            return new ExchangeRateDto(savedExchangeRate.getId(),
+                    currencyService.getCurrencyById(savedExchangeRate.getBaseCurrency().getId()).get(),
+                    currencyService.getCurrencyById(savedExchangeRate.getTargetCurrency().getId()).get(),
+                    savedExchangeRate.getRate());
 
-        var exchangeRate = new ExchangeRate(null,
-                new Currency(
-                        baseCurrencyId,
-                        baseCurrencyDto.code(),
-                        baseCurrencyDto.name(),
-                        baseCurrencyDto.sign()
-        ), new Currency(
-                targetCurrencyId,
-                targetCurrencyDto.code(),
-                targetCurrencyDto.name(),
-                targetCurrencyDto.sign()
-        ), rate);
-        ExchangeRate savedExchangeRate = null;
-        try {
-            savedExchangeRate = exchangeRateDao.save(exchangeRate);
-        } catch (SQLException e) {
-            throw new ExchangeAlreadyExistException(e);
-        }
-        return new ExchangeRateDto(savedExchangeRate.getId(),
-                currencyService.getCurrencyById(savedExchangeRate.getBaseCurrency().getId()).get(),
-                currencyService.getCurrencyById(savedExchangeRate.getTargetCurrency().getId()).get(),
-                savedExchangeRate.getRate());
     }
 
 

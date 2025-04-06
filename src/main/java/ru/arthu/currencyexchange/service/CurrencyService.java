@@ -2,6 +2,9 @@ package ru.arthu.currencyexchange.service;
 
 import ru.arthu.currencyexchange.dao.CurrencyDao;
 import ru.arthu.currencyexchange.dto.CurrencyDto;
+import ru.arthu.currencyexchange.exceptions.CurrencyAlreadyExist;
+import ru.arthu.currencyexchange.exceptions.CurrencyCodeNotFoundException;
+import ru.arthu.currencyexchange.exceptions.db.UniqueConstraintViolationException;
 import ru.arthu.currencyexchange.model.Currency;
 
 import java.util.List;
@@ -27,16 +30,15 @@ public class CurrencyService {
     }
 
     public CurrencyDto createCurrency(String code, String fullName, String sign) {
-        var currency = new Currency(null, code, fullName, sign);
-        Currency savedCurrency = null;
         try {
-            savedCurrency = currencyDao.save(currency);
-        } catch (java.sql.SQLException throwables) {
-            throw new RuntimeException(throwables);
+            var currency = new Currency(null, code, fullName, sign);
+            var savedCurrency = currencyDao.save(currency);
+            return new CurrencyDto(savedCurrency.getId(), savedCurrency.getCode(),
+                    savedCurrency.getFullName(),
+                    savedCurrency.getSign());
+        } catch (UniqueConstraintViolationException e) {
+            throw new CurrencyAlreadyExist();
         }
-        return new CurrencyDto(savedCurrency.getId(), savedCurrency.getCode(),
-                savedCurrency.getFullName(),
-                savedCurrency.getSign());
     }
 
     public boolean updateCurrency(Long id, CurrencyDto currencyDto) {
@@ -63,14 +65,19 @@ public class CurrencyService {
         return INSTANCE;
     }
 
-    public Optional<CurrencyDto> getCurrencyByCode(String currencyCode) {
-        return currencyDao.findByCode(currencyCode)
-                .map(currency -> new CurrencyDto(
-                        currency.getId(),
-                        currency.getCode(),
-                        currency.getFullName(),
-                        currency.getSign())
-                );
+    public Optional<CurrencyDto> getCurrencyByCode(String currencyCode) throws CurrencyCodeNotFoundException {
+        var currencyOpt = currencyDao.findByCode(currencyCode);
 
+        if (currencyOpt.isEmpty()) {
+            throw new CurrencyCodeNotFoundException();
+        } else {
+            return currencyDao.findByCode(currencyCode)
+                    .map(currency -> new CurrencyDto(
+                            currency.getId(),
+                            currency.getCode(),
+                            currency.getFullName(),
+                            currency.getSign())
+                    );
+        }
     }
 }

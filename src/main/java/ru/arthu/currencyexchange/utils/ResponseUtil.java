@@ -10,10 +10,10 @@ public class ResponseUtil {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    public static void writeJsonResponse(HttpServletResponse resp, Object data) throws IOException {
+    public static void writeJsonResponse(HttpServletResponse resp, Object data, int statusCode) throws IOException {
         resp.setCharacterEncoding("UTF-8");
         resp.setContentType("application/json");
-        resp.setStatus(HttpServletResponse.SC_OK);
+        resp.setStatus(statusCode);
         resp.getWriter().write(objectMapper.writeValueAsString(data));
     }
 
@@ -22,6 +22,6 @@ public class ResponseUtil {
         resp.setContentType("application/json");
         resp.sendError(errorCode);
         resp.getWriter().write(objectMapper.writeValueAsString(errorDto));
-
     }
+
 }

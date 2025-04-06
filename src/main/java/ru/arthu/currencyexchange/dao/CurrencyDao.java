@@ -1,5 +1,6 @@
 package ru.arthu.currencyexchange.dao;
 
+import ru.arthu.currencyexchange.exceptions.db.SqlExceptionMapper;
 import ru.arthu.currencyexchange.model.Currency;
 import ru.arthu.currencyexchange.utils.ConnectionManager;
 
@@ -90,7 +91,7 @@ public class CurrencyDao implements Dao<Long, Currency> {
     }
 
     @Override
-    public Currency save(Currency entity) throws SQLException {
+    public Currency save(Currency entity) {
         try (var connection = ConnectionManager.open(); var statement = connection.prepareStatement(SAVE_SQL, Statement.RETURN_GENERATED_KEYS)) {
             statement.setString(1, entity.getCode());
             statement.setString(2, entity.getFullName());
@@ -104,7 +105,7 @@ public class CurrencyDao implements Dao<Long, Currency> {
             }
             return entity;
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            throw SqlExceptionMapper.map(e);
         }
     }
 
@@ -136,7 +137,7 @@ public class CurrencyDao implements Dao<Long, Currency> {
                 }
             }
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            throw SqlExceptionMapper.map(e);
         }
         return Optional.empty();
     }

@@ -8,7 +8,14 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import ru.arthu.currencyexchange.dto.CurrencyDto;
+import ru.arthu.currencyexchange.dto.ErrorDto;
+import ru.arthu.currencyexchange.exceptions.CurrencyAlreadyExist;
+import ru.arthu.currencyexchange.exceptions.CurrencyCodeNotFoundException;
+import ru.arthu.currencyexchange.exceptions.db.DatabaseUnavailableException;
+import ru.arthu.currencyexchange.exceptions.db.GeneralDatabaseException;
+import ru.arthu.currencyexchange.exceptions.db.UniqueConstraintViolationException;
 import ru.arthu.currencyexchange.service.CurrencyService;
+import ru.arthu.currencyexchange.utils.ResponseUtil;
 
 import java.io.IOException;
 import java.util.List;
@@ -27,28 +34,26 @@ public class CurrencyServlet extends HttpServlet {
             String pathInfo = req.getPathInfo();
             if (pathInfo == null) {
                 List<CurrencyDto> currencies = currencyService.getAllCurrencies();
-                resp.setContentType("application/json");
-                resp.getWriter().write(objectMapper.writeValueAsString(currencies));
-                resp.setStatus(HttpServletResponse.SC_OK);
+                ResponseUtil.writeJsonResponse(resp, currencies, HttpServletResponse.SC_OK);
             } else {
                 String currencyCode = pathInfo.substring(1);
                 if (currencyCode.isEmpty()) {
-                    resp.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(
+                            "Не передан параметр кода валюты"
+                    ));
                 } else {
                     Optional<CurrencyDto> currency = currencyService.getCurrencyByCode(
-                        currencyCode);
-                    if (currency.isPresent()) {
-                        resp.setContentType("application/json");
-                        resp.getWriter().write(objectMapper.writeValueAsString(currency.get()));
-                        resp.setStatus(HttpServletResponse.SC_OK);
-                    } else {
-                        resp.sendError(HttpServletResponse.SC_NOT_FOUND);
-                    }
+                            currencyCode);
                 }
             }
-        } catch (Exception e) {
-            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            throw new RuntimeException(e);
+        } catch (CurrencyCodeNotFoundException e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_NOT_FOUND, new ErrorDto(
+                    "Код валюты не найден"
+            ));
+        } catch (DatabaseUnavailableException | GeneralDatabaseException e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, new ErrorDto(
+                    "Внутренняя ошибка сервера"
+            ));
         }
     }
 
@@ -62,21 +67,22 @@ public class CurrencyServlet extends HttpServlet {
 
         if (name == null || code == null || sign == null || name.isBlank() || code.isBlank()
             || sign.isBlank()) {
-            resp.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                "Missing required fields: name, code, sign");
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(
+                    "Отсутствуют обязательные параметры"
+            ));
             return;
         }
-        Optional<CurrencyDto> existingCurrency = CurrencyService.getInstance()
-            .getCurrencyByCode(code);
-        if (existingCurrency.isPresent()) {
-            resp.sendError(HttpServletResponse.SC_CONFLICT,
-                "Currency with this code is already exist");
-            return;
+        try {
+            CurrencyDto newCurrency = currencyService.createCurrency(code, name, sign);
+            ResponseUtil.writeJsonResponse(resp, newCurrency, HttpServletResponse.SC_CREATED);
+        } catch (CurrencyAlreadyExist e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_CONFLICT, new ErrorDto(
+                    "Валюта с таким кодом уже существует"
+            ));
+        } catch (DatabaseUnavailableException | GeneralDatabaseException e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, new ErrorDto(
+                    "Внутренняя ошибка сервера"
+            ));
         }
-
-        CurrencyDto newCurrency = currencyService.createCurrency(code, name, sign);
-        resp.setContentType("application/json");
-        resp.setStatus(HttpServletResponse.SC_CREATED);
-        resp.getWriter().write(objectMapper.writeValueAsString(newCurrency));
     }
 }

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 import org.sqlite.SQLiteException;
 import ru.arthu.currencyexchange.dto.ExchangeRateFilter;
+import ru.arthu.currencyexchange.exceptions.ExchangeAlreadyExistException;
 import ru.arthu.currencyexchange.model.Currency;
 import ru.arthu.currencyexchange.model.ExchangeRate;
 import ru.arthu.currencyexchange.utils.ConnectionManager;
@@ -179,7 +180,7 @@ public class ExchangeRateDao implements Dao<Long, ExchangeRate> {
 
 
     @Override
-    public ExchangeRate save(ExchangeRate entity) throws SQLException {
+    public ExchangeRate save(ExchangeRate entity) throws ExchangeAlreadyExistException {
         try (var connection = ConnectionManager.open();
             var statement = connection.prepareStatement(SAVE_SQL,
                 Statement.RETURN_GENERATED_KEYS)) {
@@ -194,7 +195,7 @@ public class ExchangeRateDao implements Dao<Long, ExchangeRate> {
             }
             return entity;
         } catch (SQLException e) {
-            throw new SQLException(e);
+            throw new ExchangeAlreadyExistException(e);
         }
     }
 

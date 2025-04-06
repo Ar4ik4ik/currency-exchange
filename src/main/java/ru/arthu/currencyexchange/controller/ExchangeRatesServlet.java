@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import ru.arthu.currencyexchange.dto.CurrencyDto;
 import ru.arthu.currencyexchange.dto.ErrorDto;
 import ru.arthu.currencyexchange.dto.ExchangeRateDto;
+import ru.arthu.currencyexchange.exceptions.CurrencyCodeNotFoundException;
 import ru.arthu.currencyexchange.exceptions.ExchangeAlreadyExistException;
 import ru.arthu.currencyexchange.service.CurrencyService;
 import ru.arthu.currencyexchange.service.ExchangeRateService;
@@ -31,7 +32,7 @@ public class ExchangeRatesServlet extends HttpServlet {
         throws IOException {
         try {
             List<ExchangeRateDto> exchangeRates = exchangeRateService.getAllExchangeRates();
-            ResponseUtil.writeJsonResponse(resp, exchangeRates);
+            ResponseUtil.writeJsonResponse(resp, exchangeRates, HttpServletResponse.SC_OK);
         } catch (Exception e) {
             ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, new ErrorDto(
                     "Внутренняя ошибка сервера"
@@ -40,47 +41,44 @@ public class ExchangeRatesServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
-        throws IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         req.setCharacterEncoding("UTF-8");
-        String reqBaseCurrencyCode = req.getParameter("baseCurrencyCode");
-        String reqTargetCurrencyCode = req.getParameter("targetCurrencyCode");
-        String reqRate = req.getParameter("rate");
-        if (reqBaseCurrencyCode == null || reqTargetCurrencyCode == null || reqRate == null
-            || reqBaseCurrencyCode.isBlank() || reqTargetCurrencyCode.isBlank()
-            || reqRate.isBlank()) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(
-                    "Одно из полей пустое или не передано"
-            ));
+
+        String baseCurrencyCode = req.getParameter("baseCurrencyCode");
+        String targetCurrencyCode = req.getParameter("targetCurrencyCode");
+        String rateStr = req.getParameter("rate");
+
+        if (baseCurrencyCode == null || targetCurrencyCode == null || rateStr == null
+                || baseCurrencyCode.isBlank() || targetCurrencyCode.isBlank() || rateStr.isBlank()) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST,
+                    new ErrorDto("Одно из полей пустое или не передано"));
             return;
         }
+
+        BigDecimal rate;
         try {
-            Optional<CurrencyDto> foundBaseCurrency = currencyService.getCurrencyByCode(
-                reqBaseCurrencyCode);
-            Optional<CurrencyDto> foundTargetCurrency = currencyService.getCurrencyByCode(
-                reqTargetCurrencyCode);
+            rate = new BigDecimal(rateStr);
+        } catch (NumberFormatException e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST,
+                    new ErrorDto("Неверный формат курса"));
+            return;
+        }
 
-            try {
-                ExchangeRateDto createdExchangeRate = null;
-                try {
-                    createdExchangeRate = exchangeRateService.createExchangeRate(
-                        foundBaseCurrency.isPresent() ? foundBaseCurrency.get().id() : -1L,
-                        foundTargetCurrency.isPresent() ? foundTargetCurrency.get().id() : -1L,
-                        BigDecimal.valueOf(Double.parseDouble(reqRate)));
-                } catch (ExchangeAlreadyExistException e) {
-                    resp.sendError(HttpServletResponse.SC_CONFLICT);
-                }
-                resp.setStatus(HttpServletResponse.SC_CREATED);
-                resp.setContentType("application/json");
-                resp.getWriter().write(objectMapper.writeValueAsString(createdExchangeRate));
-
-            } catch (IllegalArgumentException e) {
-                resp.sendError(HttpServletResponse.SC_NOT_FOUND);
-            }
-
+        try {
+            ExchangeRateDto createdExchangeRate = exchangeRateService.createExchangeRate(
+                    baseCurrencyCode, targetCurrencyCode, rate);
+            ResponseUtil.writeJsonResponse(resp, createdExchangeRate, HttpServletResponse.SC_CREATED);
+        } catch (ExchangeAlreadyExistException e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_CONFLICT,
+                    new ErrorDto("Курс обмена уже существует"));
+        } catch (CurrencyCodeNotFoundException | IllegalArgumentException e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_NOT_FOUND,
+                    new ErrorDto("Базовая или целевая валюта не найдена, либо курс <= 0"));
         } catch (Exception e) {
-            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    new ErrorDto("Внутренняя ошибка сервера"));
             throw new RuntimeException(e);
         }
     }
+
 }

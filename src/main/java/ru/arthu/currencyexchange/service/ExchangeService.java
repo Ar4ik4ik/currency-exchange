@@ -21,7 +21,7 @@ public class ExchangeService {
         Optional<CurrencyDto> targetOpt = currencyService.getCurrencyByCode(targetCurrency);
 
         if (baseOpt.isEmpty() || targetOpt.isEmpty()) {
-            throw new CurrencyCodeNotFoundException("Currency code not found");
+            throw new CurrencyCodeNotFoundException();
         }
 
         CurrencyDto base = baseOpt.get();

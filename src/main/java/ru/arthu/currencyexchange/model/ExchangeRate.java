@@ -1,5 +1,7 @@
 package ru.arthu.currencyexchange.model;
 
+import ru.arthu.currencyexchange.dto.CurrencyDto;
+
 import java.math.BigDecimal;
 import java.util.Objects;
 
@@ -15,6 +17,15 @@ public class ExchangeRate {
         this.baseCurrency = baseCurrency;
         this.targetCurrency = targetCurrency;
         this.rate = rate;
+    }
+
+    public ExchangeRate(CurrencyDto baseCurrencyDto, CurrencyDto targetCurrencyDto, BigDecimal rate) {
+        this(
+                null,
+                new Currency(baseCurrencyDto),
+                new Currency(targetCurrencyDto),
+                rate
+        );
     }
 
     public Long getId() {

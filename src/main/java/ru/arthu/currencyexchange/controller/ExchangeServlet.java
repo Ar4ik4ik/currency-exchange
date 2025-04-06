@@ -36,7 +36,7 @@ public class ExchangeServlet extends HttpServlet {
                     amountDecimal = new BigDecimal(amount);
                     ExchangeDto exchangeDto = exchangeService.exchange(fromCurrency, toCurrency,
                             amountDecimal);
-                    ResponseUtil.writeJsonResponse(resp, exchangeDto);
+                    ResponseUtil.writeJsonResponse(resp, exchangeDto, HttpServletResponse.SC_OK);
                 } catch (CurrencyCodeNotFoundException e) {
                     ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_NOT_FOUND, new ErrorDto(
                             "Один или оба кода валюты не были найдены"));
