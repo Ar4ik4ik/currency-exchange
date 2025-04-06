@@ -1,8 +1,6 @@
 package ru.arthu.currencyexchange.controller;
 
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,23 +11,20 @@ import ru.arthu.currencyexchange.exceptions.CurrencyAlreadyExist;
 import ru.arthu.currencyexchange.exceptions.CurrencyCodeNotFoundException;
 import ru.arthu.currencyexchange.exceptions.db.DatabaseUnavailableException;
 import ru.arthu.currencyexchange.exceptions.db.GeneralDatabaseException;
-import ru.arthu.currencyexchange.exceptions.db.UniqueConstraintViolationException;
 import ru.arthu.currencyexchange.service.CurrencyService;
 import ru.arthu.currencyexchange.utils.ResponseUtil;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 
 @WebServlet(urlPatterns = {"/currencies", "/currency/*"})
 public class CurrencyServlet extends HttpServlet {
 
     private final CurrencyService currencyService = CurrencyService.getInstance();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
-        throws ServletException, IOException {
+        throws IOException {
         try {
             String pathInfo = req.getPathInfo();
             if (pathInfo == null) {
@@ -42,8 +37,9 @@ public class CurrencyServlet extends HttpServlet {
                             "Не передан параметр кода валюты"
                     ));
                 } else {
-                    Optional<CurrencyDto> currency = currencyService.getCurrencyByCode(
+                    var currency = currencyService.getCurrency(
                             currencyCode);
+                    ResponseUtil.writeJsonResponse(resp, currency, HttpServletResponse.SC_OK);
                 }
             }
         } catch (CurrencyCodeNotFoundException e) {
@@ -59,7 +55,7 @@ public class CurrencyServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
-        throws ServletException, IOException {
+        throws IOException {
         req.setCharacterEncoding("UTF-8");
         String name = req.getParameter("name");
         String code = req.getParameter("code");
@@ -69,6 +65,12 @@ public class CurrencyServlet extends HttpServlet {
             || sign.isBlank()) {
             ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(
                     "Отсутствуют обязательные параметры"
+            ));
+            return;
+        }
+        if (code.length() != 3) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(
+                    "Длина кода должна быть равна 3-м символам"
             ));
             return;
         }

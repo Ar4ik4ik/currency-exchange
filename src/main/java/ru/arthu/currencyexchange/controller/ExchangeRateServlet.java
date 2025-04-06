@@ -1,14 +1,20 @@
 package ru.arthu.currencyexchange.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import java.math.BigDecimal;
-import ru.arthu.currencyexchange.dto.ExchangeRateDto;
+
+import ru.arthu.currencyexchange.dto.ErrorDto;
+import ru.arthu.currencyexchange.exceptions.CurrencyCodeNotFoundException;
+import ru.arthu.currencyexchange.exceptions.ExchangeRateNotFoundException;
+import ru.arthu.currencyexchange.exceptions.db.DatabaseUnavailableException;
+import ru.arthu.currencyexchange.exceptions.db.GeneralDatabaseException;
 import ru.arthu.currencyexchange.service.ExchangeRateService;
+import ru.arthu.currencyexchange.utils.ResponseUtil;
 
 import java.io.IOException;
 
@@ -16,80 +22,86 @@ import java.io.IOException;
 public class ExchangeRateServlet extends HttpServlet {
 
     private final ExchangeRateService exchangeRateService = ExchangeRateService.getInstance();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
-        throws ServletException, IOException {
-        try {
-            String pathInfo = req.getPathInfo();
-            System.out.println(pathInfo);
-            if (pathInfo == null || pathInfo.length() != 7) {
-                resp.sendError(HttpServletResponse.SC_BAD_REQUEST);
-                return;
-            }
-            String baseCurrencyCode = pathInfo.substring(1, 4);
-            String targetCurrencyCode = pathInfo.substring(4, 7);
-            var optExchangeRateDto = exchangeRateService.getExchangeRateDtoByCode(
-                baseCurrencyCode,
-                targetCurrencyCode);
-            if (optExchangeRateDto.isPresent()) {
-                resp.setContentType("application/json");
-                resp.setStatus(HttpServletResponse.SC_OK);
-                resp.getWriter().write(objectMapper.writeValueAsString(optExchangeRateDto.get()));
-            } else {
-                resp.sendError(HttpServletResponse.SC_NOT_FOUND);
-            }
+            throws IOException {
 
-        } catch (Exception e) {
-            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        String pathInfo = req.getPathInfo();
+        System.out.println(pathInfo);
+        if (pathInfo == null || pathInfo.length() != 7) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(
+                    "Коды валют пары отсутствуют в адресе или длина одной или двух валют не равна 3-м символам"
+            ));
+            return;
+        }
+        String baseCurrencyCode = pathInfo.substring(1, 4);
+        String targetCurrencyCode = pathInfo.substring(4, 7);
+
+        try {
+            var exchangeRate = exchangeRateService.findExchangeRateByKey(
+                    baseCurrencyCode, targetCurrencyCode);
+            ResponseUtil.writeJsonResponse(resp, exchangeRate, HttpServletResponse.SC_OK);
+        } catch (ExchangeRateNotFoundException e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_NOT_FOUND, new ErrorDto(
+                    "Обменный курс для пары не найден"
+            ));
+        } catch (DatabaseUnavailableException | GeneralDatabaseException e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, new ErrorDto(
+                    "Внутренняя ошибка сервера"
+            ));
             throw new RuntimeException(e);
         }
+
+
     }
 
-    protected void doPatch(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    protected void doPatch(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        req.setCharacterEncoding("UTF-8");
+        String pathInfo = req.getPathInfo();
+        String body = new String(req.getInputStream().readAllBytes());
+        String[] params = body.split("=");
+        if (pathInfo == null || pathInfo.length() != 7 || params.length != 2 || !params[0].equals("rate")) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(
+                    "Переданы некорректные параметры"
+            ));
+            return;
+        }
+        double rate;
         try {
-            req.setCharacterEncoding("UTF-8");
-            String pathInfo = req.getPathInfo();
-            String body = new String(req.getInputStream().readAllBytes());
-            System.out.println("Raw body: " + body);
-            String[] params = body.split("=");
-            if (pathInfo == null || pathInfo.length() != 7 || params.length != 2 || !params[0].equals("rate")) {
-                resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form data format");
-                return;
-            }
-            double rate;
-            try {
-                rate = Double.parseDouble(params[1]);
-            } catch (NumberFormatException e) {
-                resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid rate value");
-                return;
-            }
+            rate = Double.parseDouble(params[1]);
+        } catch (NumberFormatException e) {
+            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid rate value");
+            return;
+        }
 
-            String baseCurrencyCode = pathInfo.substring(1, 4);
-            String targetCurrencyCode = pathInfo.substring(4, 7);
-            var optExchangeRateDto = exchangeRateService.getExchangeRateDtoByCode(
-                baseCurrencyCode,
-                targetCurrencyCode);
-            if (optExchangeRateDto.isPresent()) {
-                var updatedExchangeRate = exchangeRateService.updateExchangeRate(
-                    new ExchangeRateDto(
-                        optExchangeRateDto.get().id(),
-                        optExchangeRateDto.get().baseCurrency(),
-                        optExchangeRateDto.get().targetCurrency(),
-                        BigDecimal.valueOf(rate)
-                    )
-                    );
-                resp.setContentType("application/json");
-                resp.setStatus(HttpServletResponse.SC_OK);
-                resp.getWriter().write(objectMapper.writeValueAsString(updatedExchangeRate.get()));
-            } else {
-                resp.sendError(HttpServletResponse.SC_NOT_FOUND);
-            }
-        } catch (Exception e) {
-            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        String baseCurrencyCode = pathInfo.substring(1, 4);
+        String targetCurrencyCode = pathInfo.substring(4, 7);
+
+        try {
+            var updatedExchangeRate = exchangeRateService.updateExchangeRate(
+                    baseCurrencyCode, targetCurrencyCode, BigDecimal.valueOf(rate)
+            );
+            ResponseUtil.writeJsonResponse(resp, updatedExchangeRate, HttpServletResponse.SC_OK);
+        } catch (IllegalArgumentException e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(
+                    "Некорректное значение переданного параметра курса. Курс должен быть > 0"
+            ));
+        } catch (ExchangeRateNotFoundException e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_NOT_FOUND, new ErrorDto(
+                    "Валютная пара не найдена"
+            ));
+        } catch (CurrencyCodeNotFoundException e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_NOT_FOUND, new ErrorDto(
+                    "Одна или более валют не найдены"
+            ));
+        } catch (DatabaseUnavailableException | GeneralDatabaseException e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, new ErrorDto(
+                    "Внутренняя ошибка сервера"
+            ));
             throw new RuntimeException(e);
         }
+
     }
 
     @Override

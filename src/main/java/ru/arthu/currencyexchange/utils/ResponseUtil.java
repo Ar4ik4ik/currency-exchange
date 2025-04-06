@@ -13,15 +13,12 @@ public class ResponseUtil {
     public static void writeJsonResponse(HttpServletResponse resp, Object data, int statusCode) throws IOException {
         resp.setCharacterEncoding("UTF-8");
         resp.setContentType("application/json");
-        resp.setStatus(statusCode);
         resp.getWriter().write(objectMapper.writeValueAsString(data));
+        resp.setStatus(statusCode);
     }
 
     public static void writeJsonError(HttpServletResponse resp, int errorCode, ErrorDto errorDto) throws IOException {
-        resp.setCharacterEncoding("UTF-8");
-        resp.setContentType("application/json");
-        resp.sendError(errorCode);
-        resp.getWriter().write(objectMapper.writeValueAsString(errorDto));
+        writeJsonResponse(resp, errorDto, errorCode);
     }
 
 }

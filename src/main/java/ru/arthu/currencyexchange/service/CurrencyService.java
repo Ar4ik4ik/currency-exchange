@@ -8,7 +8,6 @@ import ru.arthu.currencyexchange.exceptions.db.UniqueConstraintViolationExceptio
 import ru.arthu.currencyexchange.model.Currency;
 
 import java.util.List;
-import java.util.Optional;
 
 public class CurrencyService {
     private static final CurrencyService INSTANCE = new CurrencyService();
@@ -20,13 +19,6 @@ public class CurrencyService {
                         currency.getCode(),
                         currency.getFullName(),
                         currency.getSign())).toList();
-    }
-
-    public Optional<CurrencyDto> getCurrencyById(Long id) {
-        return currencyDao.findByKey(id)
-                .map(currency -> new CurrencyDto(currency.getId(), currency.getCode(),
-                        currency.getFullName(),
-                        currency.getSign()));
     }
 
     public CurrencyDto createCurrency(String code, String fullName, String sign) {
@@ -41,23 +33,6 @@ public class CurrencyService {
         }
     }
 
-    public boolean updateCurrency(Long id, CurrencyDto currencyDto) {
-        var existingCurrency = currencyDao.findByKey(id);
-        if (existingCurrency.isEmpty()) {
-            return false;
-        }
-        var updatedCurrency = new Currency(id, currencyDto.code(), currencyDto.name(), currencyDto.sign());
-        return currencyDao.update(updatedCurrency);
-    }
-
-    public boolean deleteCurrency(Long id) {
-        if (currencyDao.findByKey(id).isEmpty()) {
-            return false;
-        }
-        return currencyDao.delete(id);
-    }
-
-
     private CurrencyService() {
     }
 
@@ -65,19 +40,24 @@ public class CurrencyService {
         return INSTANCE;
     }
 
-    public Optional<CurrencyDto> getCurrencyByCode(String currencyCode) throws CurrencyCodeNotFoundException {
-        var currencyOpt = currencyDao.findByCode(currencyCode);
+    public CurrencyDto getCurrency(Long id) throws CurrencyCodeNotFoundException {
+        return currencyDao.findByKey(id)
+                .map(this::mapToDto)
+                .orElseThrow(CurrencyCodeNotFoundException::new);
+    }
 
-        if (currencyOpt.isEmpty()) {
-            throw new CurrencyCodeNotFoundException();
-        } else {
-            return currencyDao.findByCode(currencyCode)
-                    .map(currency -> new CurrencyDto(
-                            currency.getId(),
-                            currency.getCode(),
-                            currency.getFullName(),
-                            currency.getSign())
-                    );
-        }
+    public CurrencyDto getCurrency(String code) throws CurrencyCodeNotFoundException {
+        return currencyDao.findByKey(code)
+                .map(this::mapToDto)
+                .orElseThrow(CurrencyCodeNotFoundException::new);
+    }
+
+    private CurrencyDto mapToDto(Currency currency) {
+        return new CurrencyDto(
+                currency.getId(),
+                currency.getCode(),
+                currency.getFullName(),
+                currency.getSign()
+        );
     }
 }
