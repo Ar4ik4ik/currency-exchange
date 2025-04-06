@@ -26,7 +26,7 @@ public class CurrencyDao implements Dao<Long, Currency> {
 
     private static final String FIND_ALL_SQL = """
             SELECT Id, Code, FullName, Sign
-            FROM main.Currencies
+            FROM Currencies
             """;
 
     private static final String FIND_BY_ID_SQL = FIND_ALL_SQL + " WHERE Id = ?";
@@ -34,6 +34,11 @@ public class CurrencyDao implements Dao<Long, Currency> {
     private static final String UPDATE_SQL = """
             UPDATE Currencies SET Code = ?, FullName = ?, Sign = ?
             WHERE Id = ?;
+            """;
+
+    private static final String FIND_BY_CODE_SQL = """
+            SELECT Id, Code, FullName, Sign FROM main.Currencies
+            WHERE Code = ?;
             """;
 
     @Override
@@ -58,7 +63,8 @@ public class CurrencyDao implements Dao<Long, Currency> {
             while (resultSet.next()) {
                 currencyList.add(new Currency(
                         resultSet.getLong("Id"),
-                        resultSet.getString("FullName"), resultSet.getString("Code"),
+                        resultSet.getString("Code"),
+                        resultSet.getString("FullName"),
                         resultSet.getString("Sign")
                 ));
             }
@@ -74,7 +80,7 @@ public class CurrencyDao implements Dao<Long, Currency> {
             statement.setLong(1, key);
             try (var resultSet = statement.executeQuery()) {
                 if (resultSet.next()) {
-                    return Optional.of(new Currency(resultSet.getLong("Id"), resultSet.getString("FullName"), resultSet.getString("Code"), resultSet.getString("Sign")));
+                    return Optional.of(new Currency(resultSet.getLong("Id"), resultSet.getString("Code"), resultSet.getString("FullName"), resultSet.getString("Sign")));
                 }
             }
             return Optional.empty();
@@ -84,7 +90,7 @@ public class CurrencyDao implements Dao<Long, Currency> {
     }
 
     @Override
-    public Currency save(Currency entity) {
+    public Currency save(Currency entity) throws SQLException {
         try (var connection = ConnectionManager.open(); var statement = connection.prepareStatement(SAVE_SQL, Statement.RETURN_GENERATED_KEYS)) {
             statement.setString(1, entity.getCode());
             statement.setString(2, entity.getFullName());
@@ -117,5 +123,21 @@ public class CurrencyDao implements Dao<Long, Currency> {
 
     public static CurrencyDao getInstance() {
         return INSTANCE;
+    }
+
+    public Optional<Currency> findByCode(String currencyCode) {
+        try (var connection = ConnectionManager.open();
+        var statement = connection.prepareStatement(FIND_BY_CODE_SQL)) {
+            statement.setString(1, currencyCode);
+
+            try (var resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return Optional.of(new Currency(resultSet.getLong("Id"), resultSet.getString("FullName"), resultSet.getString("Code"), resultSet.getString("Sign")));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return Optional.empty();
     }
 }

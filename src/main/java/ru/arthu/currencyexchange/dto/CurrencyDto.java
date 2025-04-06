@@ -1,26 +1,15 @@
 package ru.arthu.currencyexchange.dto;
 
-public class CurrencyDto {
+import ru.arthu.currencyexchange.model.Currency;
 
-    private final String code;
-    private final String fullName;
-    private final String Sign;
+public record CurrencyDto(Long id, String code, String name, String sign) {
 
-    public CurrencyDto(String code, String fullName, String sign) {
-        this.code = code;
-        this.fullName = fullName;
-        Sign = sign;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public String getSign() {
-        return Sign;
+    public static CurrencyDto buildDto(Currency currency) {
+        return new CurrencyDto(
+            currency.getId(),
+            currency.getCode(),
+            currency.getFullName(),
+            currency.getSign()
+        );
     }
 }

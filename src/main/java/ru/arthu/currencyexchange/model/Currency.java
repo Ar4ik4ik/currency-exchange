@@ -1,6 +1,7 @@
 package ru.arthu.currencyexchange.model;
 
 import java.util.Objects;
+import ru.arthu.currencyexchange.dto.CurrencyDto;
 
 public class Currency {
 
@@ -60,6 +61,13 @@ public class Currency {
         this.fullName = fullName;
         this.code = code;
         this.id = id;
+    }
+
+    public Currency(CurrencyDto currencyDto) {
+        this.id = currencyDto.id();
+        this.code = currencyDto.code();
+        this.fullName = currencyDto.name();
+        this.sign = currencyDto.sign();
     }
 
     @Override

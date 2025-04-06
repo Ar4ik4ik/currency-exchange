@@ -13,22 +13,28 @@ public class CurrencyService {
 
     public List<CurrencyDto> getAllCurrencies() {
         return currencyDao.findAll().stream()
-                .map(currency -> new CurrencyDto(currency.getCode(),
+                .map(currency -> new CurrencyDto(currency.getId(),
+                        currency.getCode(),
                         currency.getFullName(),
                         currency.getSign())).toList();
     }
 
     public Optional<CurrencyDto> getCurrencyById(Long id) {
         return currencyDao.findByKey(id)
-                .map(currency -> new CurrencyDto(currency.getCode(),
+                .map(currency -> new CurrencyDto(currency.getId(), currency.getCode(),
                         currency.getFullName(),
                         currency.getSign()));
     }
 
     public CurrencyDto createCurrency(String code, String fullName, String sign) {
         var currency = new Currency(null, code, fullName, sign);
-        var savedCurrency = currencyDao.save(currency);
-        return new CurrencyDto(savedCurrency.getCode(),
+        Currency savedCurrency = null;
+        try {
+            savedCurrency = currencyDao.save(currency);
+        } catch (java.sql.SQLException throwables) {
+            throw new RuntimeException(throwables);
+        }
+        return new CurrencyDto(savedCurrency.getId(), savedCurrency.getCode(),
                 savedCurrency.getFullName(),
                 savedCurrency.getSign());
     }
@@ -38,7 +44,7 @@ public class CurrencyService {
         if (existingCurrency.isEmpty()) {
             return false;
         }
-        var updatedCurrency = new Currency(id, currencyDto.getCode(), currencyDto.getFullName(), currencyDto.getSign());
+        var updatedCurrency = new Currency(id, currencyDto.code(), currencyDto.name(), currencyDto.sign());
         return currencyDao.update(updatedCurrency);
     }
 
@@ -55,5 +61,16 @@ public class CurrencyService {
 
     public static CurrencyService getInstance() {
         return INSTANCE;
+    }
+
+    public Optional<CurrencyDto> getCurrencyByCode(String currencyCode) {
+        return currencyDao.findByCode(currencyCode)
+                .map(currency -> new CurrencyDto(
+                        currency.getId(),
+                        currency.getCode(),
+                        currency.getFullName(),
+                        currency.getSign())
+                );
+
     }
 }
