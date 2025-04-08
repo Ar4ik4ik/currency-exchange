@@ -1,7 +1,6 @@
 package ru.arthu.currencyexchange.service;
 
 import java.math.BigDecimal;
-import java.sql.SQLException;
 
 import ru.arthu.currencyexchange.dao.ExchangeRateDao;
 import ru.arthu.currencyexchange.dto.ExchangeDto;
@@ -13,7 +12,8 @@ public class ExchangeService {
     private final CurrencyService currencyService = CurrencyService.getInstance();
 
 
-    public ExchangeDto exchange(String baseCurrency, String targetCurrency, BigDecimal amount) throws CurrencyCodeNotFoundException, SQLException {
+    public ExchangeDto exchange(String baseCurrency, String targetCurrency, BigDecimal amount)
+            throws CurrencyCodeNotFoundException {
 
         var baseCurrencyDto = currencyService.getCurrency(baseCurrency);
         var targetCurrencyDto = currencyService.getCurrency(targetCurrency);

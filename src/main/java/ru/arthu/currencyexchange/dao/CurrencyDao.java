@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-public class CurrencyDao implements Dao<Long, Currency> {
+public class CurrencyDao implements Dao<Currency> {
 
     private static final CurrencyDao INSTANCE = new CurrencyDao();
 

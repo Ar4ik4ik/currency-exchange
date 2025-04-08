@@ -19,7 +19,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 
-public class ExchangeRateDao implements Dao<Long, ExchangeRate> {
+public class ExchangeRateDao implements Dao<ExchangeRate> {
 
     private static final ExchangeRateDao INSTANCE = new ExchangeRateDao();
 
