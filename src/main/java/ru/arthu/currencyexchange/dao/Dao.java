@@ -8,9 +8,6 @@ import java.util.Optional;
 
 public interface Dao <K, E>{
 
-    boolean update(E entity);
     List<E> findAll();
-    Optional<E> findByKey(K key);
     E save(E entity) throws SQLException, ExchangeAlreadyExistException;
-    boolean delete(K key);
 }

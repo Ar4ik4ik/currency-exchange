@@ -1,15 +1,18 @@
 package ru.arthu.currencyexchange.dao;
 
+import ru.arthu.currencyexchange.exceptions.CannotSaveException;
 import ru.arthu.currencyexchange.exceptions.db.SqlExceptionMapper;
 import ru.arthu.currencyexchange.model.Currency;
 import ru.arthu.currencyexchange.utils.ConnectionManager;
 
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 public class CurrencyDao implements Dao<Long, Currency> {
 
@@ -20,45 +23,15 @@ public class CurrencyDao implements Dao<Long, Currency> {
             VALUES (?, ?, ?);
             """;
 
-    private static final String DELETE_SQL = """
-            DELETE FROM main.Currencies
-            WHERE ID = ?;
-            """;
-
-
     private static final String FIND_ALL_SQL = """
             SELECT Id, Code, FullName, Sign
             FROM Currencies
-            """;
-
-    private static final String FIND_BY_ID_SQL = """
-            SELECT Id, Code, FullName, Sign FROM main.Currencies
-            WHERE Id = ?;
-            """;
-
-    private static final String UPDATE_SQL = """
-            UPDATE Currencies SET Code = ?, FullName = ?, Sign = ?
-            WHERE Id = ?;
             """;
 
     private static final String FIND_BY_CODE_SQL = """
             SELECT Id, Code, FullName, Sign FROM main.Currencies
             WHERE Code = ?;
             """;
-
-    @Override
-    public boolean update(Currency entity) {
-        try (var connection = ConnectionManager.open();
-             var statement = connection.prepareStatement(UPDATE_SQL)) {
-            statement.setString(1, entity.getCode());
-            statement.setString(2, entity.getFullName());
-            statement.setString(3, entity.getSign());
-            statement.setLong(4, entity.getId());
-            return statement.executeUpdate() > 0;
-        } catch (SQLException e) {
-            throw SqlExceptionMapper.map(e);
-        }
-    }
 
     @Override
     public List<Currency> findAll() {
@@ -75,20 +48,33 @@ public class CurrencyDao implements Dao<Long, Currency> {
         return currencyList;
     }
 
-    @Override
-    public Optional<Currency> findByKey(Long key) {
+    private Optional<Currency> findOne(String sql, Consumer<PreparedStatement> preparer) {
         try (var connection = ConnectionManager.open();
-             var statement = connection.prepareStatement(FIND_BY_ID_SQL)) {
-            statement.setLong(1, key);
+             var statement = connection.prepareStatement(sql)) {
+
+            preparer.accept(statement);
+
             try (var resultSet = statement.executeQuery()) {
                 if (resultSet.next()) {
                     return Optional.of(mapRow(resultSet));
                 }
             }
-            return Optional.empty();
+
         } catch (SQLException e) {
             throw SqlExceptionMapper.map(e);
         }
+
+        return Optional.empty();
+    }
+
+    public Optional<Currency> findByKey(String code) {
+        return findOne(FIND_BY_CODE_SQL, stmt -> {
+            try {
+                stmt.setString(1, code);
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     @Override
@@ -96,47 +82,22 @@ public class CurrencyDao implements Dao<Long, Currency> {
         try (var connection = ConnectionManager.open();
              var statement = connection.prepareStatement(
                      SAVE_SQL, Statement.RETURN_GENERATED_KEYS)) {
-            statement.setString(1, entity.getCode());
-            statement.setString(2, entity.getFullName());
-            statement.setString(3, entity.getSign());
+            setStatementParams(statement, entity);
             statement.executeUpdate();
 
             try (var generatedKeys = statement.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
-                    entity.setId(generatedKeys.getLong(1));
+                    return new Currency(
+                            generatedKeys.getLong(1),
+                            entity.code(),
+                            entity.fullName(),
+                            entity.sign());
                 }
             }
-            return entity;
+            throw new CannotSaveException();
         } catch (SQLException e) {
             throw SqlExceptionMapper.map(e);
         }
-    }
-
-    @Override
-    public boolean delete(Long id) {
-        try (var connection = ConnectionManager.open();
-             var statement = connection.prepareStatement(DELETE_SQL)) {
-            statement.setLong(1, id);
-            return statement.executeUpdate() > 0;
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public Optional<Currency> findByKey(String currencyCode) {
-        try (var connection = ConnectionManager.open();
-        var statement = connection.prepareStatement(FIND_BY_CODE_SQL)) {
-            statement.setString(1, currencyCode);
-
-            try (var resultSet = statement.executeQuery()) {
-                if (resultSet.next()) {
-                    return Optional.of(mapRow(resultSet));
-                }
-            }
-        } catch (SQLException e) {
-            throw SqlExceptionMapper.map(e);
-        }
-        return Optional.empty();
     }
 
     private Currency mapRow(ResultSet rs) throws SQLException {
@@ -146,6 +107,12 @@ public class CurrencyDao implements Dao<Long, Currency> {
                 rs.getString("FullName"),
                 rs.getString("Sign")
         );
+    }
+
+    private static void setStatementParams(PreparedStatement statement,Currency entity) throws SQLException {
+        statement.setString(1, entity.code());
+        statement.setString(2, entity.fullName());
+        statement.setString(3, entity.sign());
     }
 
     private CurrencyDao() {

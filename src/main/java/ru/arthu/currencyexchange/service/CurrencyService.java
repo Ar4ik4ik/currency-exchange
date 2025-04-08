@@ -15,22 +15,24 @@ public class CurrencyService {
 
     public List<CurrencyDto> getAllCurrencies() {
         return currencyDao.findAll().stream()
-                .map(currency -> new CurrencyDto(currency.getId(),
-                        currency.getCode(),
-                        currency.getFullName(),
-                        currency.getSign())).toList();
+                .map(CurrencyDto::fromModel).toList();
     }
 
     public CurrencyDto createCurrency(String code, String fullName, String sign) {
         try {
-            var currency = new Currency(null, code, fullName, sign);
-            var savedCurrency = currencyDao.save(currency);
-            return new CurrencyDto(savedCurrency.getId(), savedCurrency.getCode(),
-                    savedCurrency.getFullName(),
-                    savedCurrency.getSign());
+            return CurrencyDto.fromModel(
+                    currencyDao.save(
+                            new Currency(null, code, fullName, sign)));
+
         } catch (UniqueConstraintViolationException e) {
             throw new CurrencyAlreadyExist();
         }
+    }
+
+    public CurrencyDto getCurrency(String code) throws CurrencyCodeNotFoundException {
+        return currencyDao.findByKey(code)
+                .map(CurrencyDto::fromModel)
+                .orElseThrow(CurrencyCodeNotFoundException::new);
     }
 
     private CurrencyService() {
@@ -38,26 +40,5 @@ public class CurrencyService {
 
     public static CurrencyService getInstance() {
         return INSTANCE;
-    }
-
-    public CurrencyDto getCurrency(Long id) throws CurrencyCodeNotFoundException {
-        return currencyDao.findByKey(id)
-                .map(this::mapToDto)
-                .orElseThrow(CurrencyCodeNotFoundException::new);
-    }
-
-    public CurrencyDto getCurrency(String code) throws CurrencyCodeNotFoundException {
-        return currencyDao.findByKey(code)
-                .map(this::mapToDto)
-                .orElseThrow(CurrencyCodeNotFoundException::new);
-    }
-
-    private CurrencyDto mapToDto(Currency currency) {
-        return new CurrencyDto(
-                currency.getId(),
-                currency.getCode(),
-                currency.getFullName(),
-                currency.getSign()
-        );
     }
 }

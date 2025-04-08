@@ -18,7 +18,7 @@ public class ExchangeService {
         var baseCurrencyDto = currencyService.getCurrency(baseCurrency);
         var targetCurrencyDto = currencyService.getCurrency(targetCurrency);
 
-        BigDecimal rate = exchangeRateDao.getExchangeRate(
+        var rate = exchangeRateDao.getExchangeRate(
                 baseCurrencyDto.id(), targetCurrencyDto.id());
         return new ExchangeDto(
                 baseCurrencyDto, targetCurrencyDto, rate, amount, amount.multiply(rate));

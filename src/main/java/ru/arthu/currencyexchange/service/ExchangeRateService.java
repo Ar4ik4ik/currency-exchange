@@ -1,7 +1,6 @@
 package ru.arthu.currencyexchange.service;
 
 import ru.arthu.currencyexchange.dao.ExchangeRateDao;
-import ru.arthu.currencyexchange.dto.CurrencyDto;
 import ru.arthu.currencyexchange.dto.ExchangeRateDto;
 import ru.arthu.currencyexchange.exceptions.ExchangeAlreadyExistException;
 import ru.arthu.currencyexchange.exceptions.ExchangeRateNotFoundException;
@@ -19,12 +18,7 @@ public class ExchangeRateService {
 
     public List<ExchangeRateDto> getAllExchangeRates() {
         return exchangeRateDao.findAll().stream()
-                .map(rate -> new ExchangeRateDto(
-                        rate.getId(),
-                        currencyService.getCurrency(rate.getBaseCurrency().getId()),
-                        currencyService.getCurrency(rate.getTargetCurrency().getId()),
-                        rate.getRate()
-                )).toList();
+                .map(ExchangeRateDto::fromModel).toList();
     }
 
     public ExchangeRateDto createExchangeRate(String baseCurrencyCode, String targetCurrencyCode, BigDecimal rate)
@@ -37,26 +31,22 @@ public class ExchangeRateService {
         var baseCurrencyDto = currencyService.getCurrency(baseCurrencyCode);
         var targetCurrencyDto = currencyService.getCurrency(targetCurrencyCode);
 
-        var exchangeRate = new ExchangeRate(baseCurrencyDto, targetCurrencyDto, rate);
-        ExchangeRate savedExchangeRate;
+        var exchangeRate = ExchangeRate.fromDto(baseCurrencyDto, targetCurrencyDto, rate);
         try {
-            savedExchangeRate = exchangeRateDao.save(exchangeRate);
+            return ExchangeRateDto.fromModel(
+                    exchangeRateDao.save(exchangeRate)
+            );
         } catch (UniqueConstraintViolationException e) {
             throw new ExchangeAlreadyExistException(e);
         }
-        return new ExchangeRateDto(savedExchangeRate.getId(),
-                    baseCurrencyDto,
-                    targetCurrencyDto,
-                    savedExchangeRate.getRate());
-
     }
 
 
     public ExchangeRateDto updateExchangeRate(
-            String baseCurrencyCode, String targetCurrencyCode, BigDecimal rate) {
+            String baseCurrencyCode, String targetCurrencyCode, BigDecimal exchangeRate) {
 
-        if (rate.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Exchange rate must be positive");
+        if (exchangeRate.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Exchange exchangeRate must be positive");
         }
 
         var baseCurrency = currencyService.getCurrency(baseCurrencyCode);
@@ -67,18 +57,13 @@ public class ExchangeRateService {
             throw new ExchangeRateNotFoundException("Валютная пара не найдена");
         } else {
             var updatedExchangeRate = new ExchangeRate(
-                    existingExchangeRate.get().getId(),
-                    new Currency(baseCurrency),
-                    new Currency(targetCurrency),
-                    rate
+                    existingExchangeRate.get().id(),
+                    Currency.fromDto(baseCurrency),
+                    Currency.fromDto(targetCurrency),
+                    exchangeRate
             );
             exchangeRateDao.update(updatedExchangeRate);
-            return new ExchangeRateDto(
-                    updatedExchangeRate.getId(),
-                    CurrencyDto.buildDto(updatedExchangeRate.getBaseCurrency()),
-                    CurrencyDto.buildDto(updatedExchangeRate.getTargetCurrency()),
-                    updatedExchangeRate.getRate()
-            );
+            return ExchangeRateDto.fromModel(updatedExchangeRate);
         }
     }
 
@@ -90,12 +75,7 @@ public class ExchangeRateService {
             throw new ExchangeRateNotFoundException("");
         } else {
             var foundExchangeRate = exchangeRate.get();
-            return new ExchangeRateDto(
-                    foundExchangeRate.getId(),
-                    CurrencyDto.buildDto(foundExchangeRate.getBaseCurrency()),
-                    CurrencyDto.buildDto(foundExchangeRate.getTargetCurrency()),
-                    foundExchangeRate.getRate()
-            );
+            return ExchangeRateDto.fromModel(foundExchangeRate);
         }
     }
 

@@ -4,12 +4,13 @@ import ru.arthu.currencyexchange.model.Currency;
 
 public record CurrencyDto(Long id, String code, String name, String sign) {
 
-    public static CurrencyDto buildDto(Currency currency) {
+    public static CurrencyDto fromModel(Currency currencyModel) {
         return new CurrencyDto(
-            currency.getId(),
-            currency.getCode(),
-            currency.getFullName(),
-            currency.getSign()
+                currencyModel.id(),
+                currencyModel.code(),
+                currencyModel.fullName(),
+                currencyModel.sign()
         );
     }
 }
+

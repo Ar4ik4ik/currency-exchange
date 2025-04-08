@@ -2,6 +2,8 @@ package ru.arthu.currencyexchange.dao;
 
 import java.math.BigDecimal;
 
+import ru.arthu.currencyexchange.exceptions.CannotUpdateException;
+import ru.arthu.currencyexchange.exceptions.ExchangeRateNotFoundException;
 import ru.arthu.currencyexchange.exceptions.db.SqlExceptionMapper;
 import ru.arthu.currencyexchange.model.Currency;
 import ru.arthu.currencyexchange.model.ExchangeRate;
@@ -14,6 +16,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 
 public class ExchangeRateDao implements Dao<Long, ExchangeRate> {
@@ -25,12 +28,6 @@ public class ExchangeRateDao implements Dao<Long, ExchangeRate> {
         VALUES (?, ?, ?);
         """;
 
-    private static final String DELETE_SQL = """
-        DELETE FROM ExchangeRates
-        WHERE ID = ?;
-        """;
-
-
     private static final String FIND_ALL_SQL = """
         SELECT e.Id AS ExchangeRateId,
                e.BaseCurrencyId, e.TargetCurrencyId, e.Rate,
@@ -40,8 +37,6 @@ public class ExchangeRateDao implements Dao<Long, ExchangeRate> {
         JOIN Currencies AS c ON c.Id = e.BaseCurrencyId
         JOIN Currencies AS c2 ON c2.Id = e.TargetCurrencyId
         """;
-
-    private static final String FIND_BY_ID_SQL = FIND_ALL_SQL + " WHERE ExchangeRateId = ?";
 
     private static final String FIND_BY_CODE_PAIR = FIND_ALL_SQL +
             " WHERE BaseCurrencyCode = ? AND TargetCurrencyCode = ?";
@@ -59,93 +54,73 @@ public class ExchangeRateDao implements Dao<Long, ExchangeRate> {
             + " WHERE e1.TargetCurrencyId = ? AND e2.TargetCurrencyId = ?;"
     };
 
-    @Override
     public boolean update(ExchangeRate entity) {
 
         try (var connection = ConnectionManager.open();
             var statement = connection.prepareStatement(UPDATE_SQL)) {
-            statement.setLong(1, entity.getBaseCurrency().getId());
-            statement.setLong(2, entity.getTargetCurrency().getId());
-            statement.setBigDecimal(3, entity.getRate());
-            statement.setLong(4, entity.getId());
-            System.out.println(statement);
+            setStatementParams(statement, entity);
+            statement.setLong(4, entity.id());
             return statement.executeUpdate() > 0;
-
         } catch (SQLException e) {
             throw SqlExceptionMapper.map(e);
         }
     }
 
 
-    private List<ExchangeRate> getExchangeRates(PreparedStatement statement,
-        List<ExchangeRate> exchangeRates) throws SQLException {
+    private List<ExchangeRate> mapResultSetToExchangeRates(PreparedStatement statement) throws SQLException {
+        List<ExchangeRate> exchangeRates = new ArrayList<>();
         try (var result = statement.executeQuery()) {
             while (result.next()) {
-                exchangeRates.add(
-                    new ExchangeRate(
-                        result.getLong("ExchangeRateId"),
-                        new Currency(
-                            result.getLong("BaseCurrencyId"),
-                            result.getString("BaseCurrencyCode"),
-                            result.getString("BaseCurrencyName"),
-                            result.getString("BaseCurrencySign")
-                        ), new Currency(
-                        result.getLong("TargetCurrencyId"),
-                        result.getString("TargetCurrencyCode"),
-                        result.getString("TargetCurrencyName"),
-                        result.getString("TargetCurrencySign")
-                    ),
-                        result.getBigDecimal("Rate")
-                    )
-                );
+                exchangeRates.add(mapRow(result));
             }
         }
         return exchangeRates;
     }
+
 
     @Override
     public List<ExchangeRate> findAll() {
 
         try (var connection = ConnectionManager.open();
             var statement = connection.prepareStatement(FIND_ALL_SQL)) {
-            List<ExchangeRate> exchangeRates = new ArrayList<>();
-            return getExchangeRates(statement, exchangeRates);
+            return mapResultSetToExchangeRates(statement);
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            throw SqlExceptionMapper.map(e);
         }
     }
 
-    @Override
-    public Optional<ExchangeRate> findByKey(Long id) {
+    private Consumer<PreparedStatement> prepareByCodes(String baseCode, String targetCode) {
+        return statement -> {
+            try {
+                statement.setString(1, baseCode);
+                statement.setString(2, targetCode);
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        };
+    }
+
+    public Optional<ExchangeRate> findByKey(String baseCode, String targetCode) {
+        return findOne(FIND_BY_CODE_PAIR, prepareByCodes(baseCode, targetCode));
+    }
+
+    private Optional<ExchangeRate> findOne(String sql, Consumer<PreparedStatement> preparer) {
         try (var connection = ConnectionManager.open();
-            var statement = connection.prepareStatement(FIND_BY_ID_SQL)) {
-            statement.setLong(1, id);
+             var statement = connection.prepareStatement(sql)) {
+
+            preparer.accept(statement);
 
             try (var resultSet = statement.executeQuery()) {
                 if (resultSet.next()) {
                     return Optional.of(mapRow(resultSet));
                 }
             }
-            return Optional.empty();
-        } catch (SQLException e) {
-            throw SqlExceptionMapper.map(e);
-        }
-    }
-    public Optional<ExchangeRate> findByKey(String baseCurrencyCode, String targetCurrencyCode) {
-        try (var connection = ConnectionManager.open();
-            var statement = connection.prepareStatement(FIND_BY_CODE_PAIR)) {
-            statement.setString(1, baseCurrencyCode);
-            statement.setString(2, targetCurrencyCode);
 
-            try (var resultSet = statement.executeQuery()) {
-                if (resultSet.next()) {
-                    return Optional.of(mapRow(resultSet));
-                }
-            }
-            return Optional.empty();
         } catch (SQLException e) {
             throw SqlExceptionMapper.map(e);
         }
+
+        return Optional.empty();
     }
 
 
@@ -154,51 +129,44 @@ public class ExchangeRateDao implements Dao<Long, ExchangeRate> {
         try (var connection = ConnectionManager.open();
             var statement = connection.prepareStatement(SAVE_SQL,
                 Statement.RETURN_GENERATED_KEYS)) {
-            statement.setLong(1, entity.getBaseCurrency().getId());
-            statement.setLong(2, entity.getTargetCurrency().getId());
-            statement.setBigDecimal(3, entity.getRate());
+
+            setStatementParams(statement, entity);
             statement.executeUpdate();
+
             try (var generatedKeys = statement.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
-                    entity.setId(generatedKeys.getLong(1));
+                    return new ExchangeRate(
+                            generatedKeys.getLong(1),
+                            entity.baseCurrency(),
+                            entity.targetCurrency(),
+                            entity.exchangeRate());
                 }
             }
-            return entity;
+            throw new CannotUpdateException();
         } catch (SQLException e) {
             throw SqlExceptionMapper.map(e);
         }
     }
 
-    @Override
-    public boolean delete(Long id) {
-        try (var connection = ConnectionManager.open();
-            var statement = connection.prepareStatement(DELETE_SQL)) {
-            statement.setLong(1, id);
-            return statement.executeUpdate() > 0;
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public BigDecimal getExchangeRate(Long baseCurrencyId, Long targetCurrencyId) throws SQLException {
+    public BigDecimal getExchangeRate(Long baseCurrencyId, Long targetCurrencyId) {
         try (var connection = ConnectionManager.open()) {
+            // SCENARIOS = AB; BA; BASE-A and BASE-B = AB
             for (String sqlQuery : EXCHANGE_SCENARIOS) {
                 try (var statement = connection.prepareStatement(sqlQuery)) {
-                    statement.setLong(2, baseCurrencyId);
+                    // Target and base are swapped to simplify the use of SQL
                     statement.setLong(1, targetCurrencyId);
+                    statement.setLong(2, baseCurrencyId);
                     try (var resultSet = statement.executeQuery()) {
                         if (resultSet.next()) {
-                            System.out.println(statement);
-                            System.out.println(resultSet.getBigDecimal(1));
                             return resultSet.getBigDecimal(1);
                         }
                     }
                 }
             }
         } catch (SQLException e) {
-            throw new SQLException(e);
+            throw SqlExceptionMapper.map(e);
         }
-        return BigDecimal.valueOf(-1);
+        throw new ExchangeRateNotFoundException("");
     }
 
     private ExchangeRate mapRow(ResultSet rs) throws SQLException {
@@ -218,6 +186,12 @@ public class ExchangeRateDao implements Dao<Long, ExchangeRate> {
                 ),
                 rs.getBigDecimal("Rate")
         );
+    }
+
+    private static void setStatementParams(PreparedStatement statement, ExchangeRate entity) throws SQLException {
+        statement.setLong(1, entity.baseCurrency().id());
+        statement.setLong(2, entity.targetCurrency().id());
+        statement.setBigDecimal(3, entity.exchangeRate());
     }
 
     private ExchangeRateDao() {

@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import ru.arthu.currencyexchange.dto.CurrencyDto;
 import ru.arthu.currencyexchange.dto.ErrorDto;
+import ru.arthu.currencyexchange.exceptions.CannotSaveException;
 import ru.arthu.currencyexchange.exceptions.CurrencyAlreadyExist;
 import ru.arthu.currencyexchange.exceptions.CurrencyCodeNotFoundException;
 import ru.arthu.currencyexchange.exceptions.db.DatabaseUnavailableException;
@@ -77,7 +78,12 @@ public class CurrencyServlet extends HttpServlet {
         try {
             CurrencyDto newCurrency = currencyService.createCurrency(code, name, sign);
             ResponseUtil.writeJsonResponse(resp, newCurrency, HttpServletResponse.SC_CREATED);
-        } catch (CurrencyAlreadyExist e) {
+        } catch (CannotSaveException e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, new ErrorDto(
+                    "Ошибка при сохранении валюты"
+            ));
+        }
+        catch (CurrencyAlreadyExist e) {
             ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_CONFLICT, new ErrorDto(
                     "Валюта с таким кодом уже существует"
             ));

@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.math.BigDecimal;
 
 import ru.arthu.currencyexchange.dto.ErrorDto;
+import ru.arthu.currencyexchange.exceptions.CannotUpdateException;
 import ru.arthu.currencyexchange.exceptions.CurrencyCodeNotFoundException;
 import ru.arthu.currencyexchange.exceptions.ExchangeRateNotFoundException;
 import ru.arthu.currencyexchange.exceptions.db.DatabaseUnavailableException;
@@ -94,6 +95,10 @@ public class ExchangeRateServlet extends HttpServlet {
         } catch (CurrencyCodeNotFoundException e) {
             ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_NOT_FOUND, new ErrorDto(
                     "Одна или более валют не найдены"
+            ));
+        } catch (CannotUpdateException e) {
+            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(
+                    "Ошибка при обновлении курса валютной пары"
             ));
         } catch (DatabaseUnavailableException | GeneralDatabaseException e) {
             ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, new ErrorDto(
