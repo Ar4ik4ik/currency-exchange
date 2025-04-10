@@ -1,6 +1,7 @@
 package ru.arthu.currencyexchange.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 import ru.arthu.currencyexchange.dao.ExchangeRateDao;
 import ru.arthu.currencyexchange.dto.ExchangeDto;
@@ -21,8 +22,8 @@ public class ExchangeService {
         var rate = exchangeRateDao.getExchangeRate(
                 baseCurrencyDto.id(), targetCurrencyDto.id());
         return new ExchangeDto(
-                baseCurrencyDto, targetCurrencyDto, rate, amount, amount.multiply(rate));
-
+                baseCurrencyDto, targetCurrencyDto, rate, amount, amount.multiply(
+                        rate).setScale(2, RoundingMode.HALF_UP));
     }
 
     public static ExchangeService getInstance() {
