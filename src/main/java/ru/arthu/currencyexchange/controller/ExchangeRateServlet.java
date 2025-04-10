@@ -8,7 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.math.BigDecimal;
 
-import ru.arthu.currencyexchange.dto.ErrorDto;
+import ru.arthu.currencyexchange.dto.ErrorCode;
 import ru.arthu.currencyexchange.dto.ExchangeRateRequestDto;
 import ru.arthu.currencyexchange.exceptions.CannotUpdateException;
 import ru.arthu.currencyexchange.exceptions.CurrencyCodeNotFoundException;
@@ -20,9 +20,12 @@ import ru.arthu.currencyexchange.utils.ResponseUtil;
 
 import java.io.IOException;
 
+import static ru.arthu.currencyexchange.utils.ResponseUtil.respondWithError;
+
 @WebServlet(urlPatterns = {"/exchangeRate/*"})
 public class ExchangeRateServlet extends HttpServlet {
 
+    private final Class<?> clazz = getClass();
     private final ExchangeRateService exchangeRateService = ExchangeRateService.getInstance();
 
     @Override
@@ -30,11 +33,9 @@ public class ExchangeRateServlet extends HttpServlet {
             throws IOException {
 
         String pathInfo = req.getPathInfo();
-        System.out.println(pathInfo);
+
         if (pathInfo == null || pathInfo.length() != 7) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(
-                    "Коды валют пары отсутствуют в адресе или длина одной или двух валют не равна 3-м символам"
-            ));
+            respondWithError(ErrorCode.INVALID_CURRENCY_CODE_LENGTH, resp, clazz);
             return;
         }
         String baseCurrencyCode = pathInfo.substring(1, 4);
@@ -43,21 +44,16 @@ public class ExchangeRateServlet extends HttpServlet {
         try {
             var exchangeRate = exchangeRateService.getExchangeRate(
                     new ExchangeRateRequestDto(
-                    baseCurrencyCode, targetCurrencyCode, null
-            ));
+                            baseCurrencyCode, targetCurrencyCode, null
+                    ));
             ResponseUtil.writeJsonResponse(resp, exchangeRate, HttpServletResponse.SC_OK);
+
         } catch (ExchangeRateNotFoundException e) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_NOT_FOUND, new ErrorDto(
-                    "Обменный курс для пары не найден"
-            ));
+            respondWithError(ErrorCode.EXCHANGE_RATE_NOT_FOUND, resp, clazz);
+
         } catch (DatabaseUnavailableException | GeneralDatabaseException e) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, new ErrorDto(
-                    "Внутренняя ошибка сервера"
-            ));
-            throw new RuntimeException(e);
+            respondWithError(ErrorCode.INTERNAL_SERVER_ERROR, resp, clazz);
         }
-
-
     }
 
     protected void doPatch(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -65,17 +61,16 @@ public class ExchangeRateServlet extends HttpServlet {
         String pathInfo = req.getPathInfo();
         String body = new String(req.getInputStream().readAllBytes());
         String[] params = body.split("=");
+
         if (pathInfo == null || pathInfo.length() != 7 || params.length != 2 || !params[0].equals("rate")) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(
-                    "Переданы некорректные параметры"
-            ));
+            respondWithError(ErrorCode.INVALID_PATCH_PARAMS, resp, clazz);
             return;
         }
         double rate;
         try {
             rate = Double.parseDouble(params[1]);
         } catch (NumberFormatException e) {
-            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid rate value");
+            respondWithError(ErrorCode.INVALID_PATCH_PARAMS, resp, clazz);
             return;
         }
 
@@ -86,31 +81,21 @@ public class ExchangeRateServlet extends HttpServlet {
             var updatedExchangeRate = exchangeRateService.updateExchangeRate(
                     new ExchangeRateRequestDto(
                             baseCurrencyCode, targetCurrencyCode, BigDecimal.valueOf(rate)
-            ));
+                    ));
             ResponseUtil.writeJsonResponse(resp, updatedExchangeRate, HttpServletResponse.SC_OK);
         } catch (IllegalArgumentException e) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(
-                    "Некорректное значение переданного параметра курса. Курс должен быть > 0"
-            ));
+            respondWithError(ErrorCode.INVALID_EXCHANGE_RATE, resp, clazz);
+
         } catch (ExchangeRateNotFoundException e) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_NOT_FOUND, new ErrorDto(
-                    "Валютная пара не найдена"
-            ));
+            respondWithError(ErrorCode.EXCHANGE_RATE_NOT_FOUND, resp, clazz);
+
         } catch (CurrencyCodeNotFoundException e) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_NOT_FOUND, new ErrorDto(
-                    "Одна или более валют не найдены"
-            ));
-        } catch (CannotUpdateException e) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(
-                    "Ошибка при обновлении курса валютной пары"
-            ));
-        } catch (DatabaseUnavailableException | GeneralDatabaseException e) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, new ErrorDto(
-                    "Внутренняя ошибка сервера"
-            ));
+            respondWithError(ErrorCode.CURRENCY_CODE_NOT_FOUND, resp, clazz);
+
+        } catch (DatabaseUnavailableException | GeneralDatabaseException | CannotUpdateException e) {
+            respondWithError(ErrorCode.INTERNAL_SERVER_ERROR, resp, clazz);
             throw new RuntimeException(e);
         }
-
     }
 
     @Override
@@ -120,7 +105,6 @@ public class ExchangeRateServlet extends HttpServlet {
             super.service(req, resp);
             return;
         }
-
         this.doPatch(req, resp);
     }
 }

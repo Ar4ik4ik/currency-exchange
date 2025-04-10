@@ -21,6 +21,7 @@ public class ExchangeRateService {
     public ExchangeRateService(ExchangeRateDao exchangeRateDao) {
         this.exchangeRateDao = exchangeRateDao;
     }
+
     public static ExchangeRateService getInstance() {
         return new ExchangeRateService(ExchangeRateDao.getInstance());
     }

@@ -1,4 +1,13 @@
 package ru.arthu.currencyexchange.dto;
 
-public record ErrorDto(String message) {
+public class ErrorDto {
+    private final String message;
+
+    public ErrorDto(ErrorCode code) {
+        this.message = code.getMessage();
+    }
+
+    public String getMessage() {
+        return message;
+    }
 }

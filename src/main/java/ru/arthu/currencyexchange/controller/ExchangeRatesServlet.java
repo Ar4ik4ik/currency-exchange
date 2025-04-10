@@ -6,7 +6,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import ru.arthu.currencyexchange.dto.ErrorDto;
+import ru.arthu.currencyexchange.dto.ErrorCode;
 import ru.arthu.currencyexchange.dto.ExchangeRateDto;
 import ru.arthu.currencyexchange.exceptions.CurrencyCodeNotFoundException;
 import ru.arthu.currencyexchange.exceptions.ObjectAlreadyExistException;
@@ -21,22 +21,22 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
 
+import static ru.arthu.currencyexchange.utils.ResponseUtil.respondWithError;
+
 
 @WebServlet(urlPatterns = {"/exchangeRates"})
 public class ExchangeRatesServlet extends HttpServlet {
-
+    private final Class<?> clazz = getClass();
     private final ExchangeRateService exchangeRateService = ExchangeRateService.getInstance();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
-        throws IOException {
+            throws IOException {
         try {
             List<ExchangeRateDto> exchangeRates = exchangeRateService.getAllExchangeRates();
             ResponseUtil.writeJsonResponse(resp, exchangeRates, HttpServletResponse.SC_OK);
         } catch (DatabaseUnavailableException | GeneralDatabaseException e) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    new ErrorDto("Внутренняя ошибка сервера"));
-            throw new RuntimeException(e);
+            respondWithError(ErrorCode.INTERNAL_SERVER_ERROR, resp, clazz);
         }
     }
 
@@ -48,19 +48,15 @@ public class ExchangeRatesServlet extends HttpServlet {
         String targetCurrencyCode = req.getParameter("targetCurrencyCode");
         String rateStr = req.getParameter("rate");
 
-        if (baseCurrencyCode == null || targetCurrencyCode == null || rateStr == null
-                || baseCurrencyCode.isBlank() || targetCurrencyCode.isBlank() || rateStr.isBlank()) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST,
-                    new ErrorDto("Одно из полей пустое"));
-            return;
+        if (isInvalidParam(baseCurrencyCode) || isInvalidParam(targetCurrencyCode) || isInvalidParam(rateStr)) {
+            respondWithError(ErrorCode.MISSING_REQUIRED_PARAMS, resp, clazz);
         }
 
         BigDecimal rate;
         try {
             rate = new BigDecimal(rateStr);
         } catch (NumberFormatException e) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST,
-                    new ErrorDto("Неверный формат курса"));
+            respondWithError(ErrorCode.INVALID_EXCHANGE_RATE_PARAM, resp, clazz);
             return;
         }
 
@@ -69,20 +65,21 @@ public class ExchangeRatesServlet extends HttpServlet {
                     ExchangeRateMapper.createRequestDto(baseCurrencyCode, targetCurrencyCode, rate));
             ResponseUtil.writeJsonResponse(resp, createdExchangeRate, HttpServletResponse.SC_CREATED);
         } catch (ObjectAlreadyExistException e) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_CONFLICT,
-                    new ErrorDto("Курс обмена уже существует"));
-        } catch (CurrencyCodeNotFoundException | IllegalArgumentException e) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_NOT_FOUND,
-                    new ErrorDto("Базовая или целевая валюта не найдена, либо курс <= 0"));
+            respondWithError(ErrorCode.EXCHANGE_RATE_ALREADY_EXISTS, resp, clazz);
+
+        } catch (CurrencyCodeNotFoundException e) {
+            respondWithError(ErrorCode.CURRENCY_CODE_NOT_FOUND, resp, clazz);
+        } catch (IllegalArgumentException e) {
+            respondWithError(ErrorCode.INVALID_EXCHANGE_RATE, resp, clazz);
         } catch (CheckConstraintViolationException e) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(
-                    "Базовая и целевая валюты должны быть разные"
-            ));
+            respondWithError(ErrorCode.IDENTICAL_TARGET_BASE, resp, clazz);
         } catch (DatabaseUnavailableException | GeneralDatabaseException e) {
-            ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    new ErrorDto("Внутренняя ошибка сервера"));
+            respondWithError(ErrorCode.INTERNAL_SERVER_ERROR, resp, clazz);
             throw new RuntimeException(e);
         }
     }
 
+    private boolean isInvalidParam(String value) {
+        return value == null || value.isBlank();
+    }
 }
