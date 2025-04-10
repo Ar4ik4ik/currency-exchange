@@ -1,4 +1,6 @@
-package ru.arthu.currencyexchange.exceptions.db;
+package ru.arthu.currencyexchange.utils.mappers;
+
+import ru.arthu.currencyexchange.exceptions.db.*;
 
 import java.sql.SQLException;
 

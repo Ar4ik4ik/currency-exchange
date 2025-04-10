@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.math.BigDecimal;
 
 import ru.arthu.currencyexchange.dto.ErrorDto;
+import ru.arthu.currencyexchange.dto.ExchangeRateRequestDto;
 import ru.arthu.currencyexchange.exceptions.CannotUpdateException;
 import ru.arthu.currencyexchange.exceptions.CurrencyCodeNotFoundException;
 import ru.arthu.currencyexchange.exceptions.ExchangeRateNotFoundException;
@@ -40,8 +41,10 @@ public class ExchangeRateServlet extends HttpServlet {
         String targetCurrencyCode = pathInfo.substring(4, 7);
 
         try {
-            var exchangeRate = exchangeRateService.findExchangeRateByKey(
-                    baseCurrencyCode, targetCurrencyCode);
+            var exchangeRate = exchangeRateService.getExchangeRate(
+                    new ExchangeRateRequestDto(
+                    baseCurrencyCode, targetCurrencyCode, null
+            ));
             ResponseUtil.writeJsonResponse(resp, exchangeRate, HttpServletResponse.SC_OK);
         } catch (ExchangeRateNotFoundException e) {
             ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_NOT_FOUND, new ErrorDto(
@@ -81,8 +84,9 @@ public class ExchangeRateServlet extends HttpServlet {
 
         try {
             var updatedExchangeRate = exchangeRateService.updateExchangeRate(
-                    baseCurrencyCode, targetCurrencyCode, BigDecimal.valueOf(rate)
-            );
+                    new ExchangeRateRequestDto(
+                            baseCurrencyCode, targetCurrencyCode, BigDecimal.valueOf(rate)
+            ));
             ResponseUtil.writeJsonResponse(resp, updatedExchangeRate, HttpServletResponse.SC_OK);
         } catch (IllegalArgumentException e) {
             ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_BAD_REQUEST, new ErrorDto(

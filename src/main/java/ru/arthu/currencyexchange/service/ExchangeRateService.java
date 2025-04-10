@@ -1,89 +1,90 @@
 package ru.arthu.currencyexchange.service;
 
+import org.apache.commons.lang3.tuple.Pair;
 import ru.arthu.currencyexchange.dao.ExchangeRateDao;
+import ru.arthu.currencyexchange.dto.CurrencyDto;
 import ru.arthu.currencyexchange.dto.ExchangeRateDto;
-import ru.arthu.currencyexchange.exceptions.ExchangeAlreadyExistException;
+import ru.arthu.currencyexchange.dto.ExchangeRateRequestDto;
 import ru.arthu.currencyexchange.exceptions.ExchangeRateNotFoundException;
+import ru.arthu.currencyexchange.exceptions.ObjectAlreadyExistException;
 import ru.arthu.currencyexchange.exceptions.db.UniqueConstraintViolationException;
-import ru.arthu.currencyexchange.model.Currency;
-import ru.arthu.currencyexchange.model.ExchangeRate;
+import ru.arthu.currencyexchange.utils.mappers.ExchangeRateMapper;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 public class ExchangeRateService {
-    private static final ExchangeRateService INSTANCE = new ExchangeRateService();
-    private final ExchangeRateDao exchangeRateDao = ExchangeRateDao.getInstance();
+
+    private final ExchangeRateDao exchangeRateDao;
     private final CurrencyService currencyService = CurrencyService.getInstance();
+
+    public ExchangeRateService(ExchangeRateDao exchangeRateDao) {
+        this.exchangeRateDao = exchangeRateDao;
+    }
+    public static ExchangeRateService getInstance() {
+        return new ExchangeRateService(ExchangeRateDao.getInstance());
+    }
 
     public List<ExchangeRateDto> getAllExchangeRates() {
         return exchangeRateDao.findAll().stream()
-                .map(ExchangeRateDto::fromModel).toList();
+                .map(ExchangeRateMapper::fromModel).toList();
     }
 
-    public ExchangeRateDto createExchangeRate(String baseCurrencyCode, String targetCurrencyCode, BigDecimal rate)
-            throws ExchangeAlreadyExistException {
+    public ExchangeRateDto createExchangeRate(ExchangeRateRequestDto requestDto)
+            throws ObjectAlreadyExistException {
 
-        if (rate.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Exchange rate must be positive");
-        }
+        validateRate(requestDto.rate());
 
-        var baseCurrencyDto = currencyService.getCurrency(baseCurrencyCode);
-        var targetCurrencyDto = currencyService.getCurrency(targetCurrencyCode);
+        var currencyPair = getCurrencyPair(requestDto);
 
-        var exchangeRate = ExchangeRate.fromDto(baseCurrencyDto, targetCurrencyDto, rate);
+        var exchangeRate = ExchangeRateMapper.fromDto(
+                currencyPair.getLeft(), currencyPair.getRight(), requestDto.rate());
         try {
-            return ExchangeRateDto.fromModel(
+            return ExchangeRateMapper.fromModel(
                     exchangeRateDao.save(exchangeRate)
             );
         } catch (UniqueConstraintViolationException e) {
-            throw new ExchangeAlreadyExistException(e);
+            throw new ObjectAlreadyExistException();
         }
     }
 
 
-    public ExchangeRateDto updateExchangeRate(
-            String baseCurrencyCode, String targetCurrencyCode, BigDecimal exchangeRate) {
+    public ExchangeRateDto updateExchangeRate(ExchangeRateRequestDto requestDto) {
 
-        if (exchangeRate.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Exchange exchangeRate must be positive");
-        }
+        validateRate(requestDto.rate());
 
-        var baseCurrency = currencyService.getCurrency(baseCurrencyCode);
-        var targetCurrency = currencyService.getCurrency(targetCurrencyCode);
+        var currencyPair = getCurrencyPair(requestDto);
         var existingExchangeRate = exchangeRateDao.findByKey(
-                baseCurrencyCode, targetCurrencyCode);
+                requestDto.baseCurrencyCode(), requestDto.targetCurrencyCode());
         if (existingExchangeRate.isEmpty()) {
             throw new ExchangeRateNotFoundException("Валютная пара не найдена");
         } else {
-            var updatedExchangeRate = new ExchangeRate(
-                    existingExchangeRate.get().id(),
-                    Currency.fromDto(baseCurrency),
-                    Currency.fromDto(targetCurrency),
-                    exchangeRate
+            var updatedExchangeRate = ExchangeRateMapper.fromDto(
+                    currencyPair.getLeft(), currencyPair.getRight(),
+                    requestDto.rate(), existingExchangeRate.get().id()
             );
             exchangeRateDao.update(updatedExchangeRate);
-            return ExchangeRateDto.fromModel(updatedExchangeRate);
+            return ExchangeRateMapper.fromModel(updatedExchangeRate);
         }
     }
 
-    public ExchangeRateDto findExchangeRateByKey(String baseCode, String targetCode) {
+    public ExchangeRateDto getExchangeRate(ExchangeRateRequestDto requestDto) {
+        return exchangeRateDao.findByKey(
+                requestDto.baseCurrencyCode(), requestDto.targetCurrencyCode())
+                .map(ExchangeRateMapper::fromModel)
+                .orElseThrow(() -> new ExchangeRateNotFoundException("..."));
 
-        var exchangeRate = exchangeRateDao.findByKey(
-                baseCode, targetCode);
-        if (exchangeRate.isEmpty()) {
-            throw new ExchangeRateNotFoundException("");
-        } else {
-            var foundExchangeRate = exchangeRate.get();
-            return ExchangeRateDto.fromModel(foundExchangeRate);
+    }
+
+    private void validateRate(BigDecimal exchangeRate) {
+        if (exchangeRate == null || exchangeRate.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Курс обмена должен быть больше нуля");
         }
     }
 
-    public static ExchangeRateService getInstance() {
-        return INSTANCE;
+    private Pair<CurrencyDto, CurrencyDto> getCurrencyPair(ExchangeRateRequestDto requestDto) {
+        var base = currencyService.getCurrency(requestDto.baseCurrencyCode());
+        var target = currencyService.getCurrency(requestDto.targetCurrencyCode());
+        return Pair.of(base, target);
     }
-
-    private ExchangeRateService() {
-    }
-
 }

@@ -8,13 +8,15 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import ru.arthu.currencyexchange.dto.ErrorDto;
 import ru.arthu.currencyexchange.dto.ExchangeRateDto;
+import ru.arthu.currencyexchange.dto.ExchangeRateRequestDto;
 import ru.arthu.currencyexchange.exceptions.CurrencyCodeNotFoundException;
-import ru.arthu.currencyexchange.exceptions.ExchangeAlreadyExistException;
+import ru.arthu.currencyexchange.exceptions.ObjectAlreadyExistException;
 import ru.arthu.currencyexchange.exceptions.db.CheckConstraintViolationException;
 import ru.arthu.currencyexchange.exceptions.db.DatabaseUnavailableException;
 import ru.arthu.currencyexchange.exceptions.db.GeneralDatabaseException;
 import ru.arthu.currencyexchange.service.ExchangeRateService;
 import ru.arthu.currencyexchange.utils.ResponseUtil;
+import ru.arthu.currencyexchange.utils.mappers.ExchangeRateMapper;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -65,9 +67,9 @@ public class ExchangeRatesServlet extends HttpServlet {
 
         try {
             ExchangeRateDto createdExchangeRate = exchangeRateService.createExchangeRate(
-                    baseCurrencyCode, targetCurrencyCode, rate);
+                    ExchangeRateMapper.createRequestDto(baseCurrencyCode, targetCurrencyCode, rate));
             ResponseUtil.writeJsonResponse(resp, createdExchangeRate, HttpServletResponse.SC_CREATED);
-        } catch (ExchangeAlreadyExistException e) {
+        } catch (ObjectAlreadyExistException e) {
             ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_CONFLICT,
                     new ErrorDto("Курс обмена уже существует"));
         } catch (CurrencyCodeNotFoundException | IllegalArgumentException e) {

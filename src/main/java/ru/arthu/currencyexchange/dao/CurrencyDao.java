@@ -1,7 +1,7 @@
 package ru.arthu.currencyexchange.dao;
 
 import ru.arthu.currencyexchange.exceptions.CannotSaveException;
-import ru.arthu.currencyexchange.exceptions.db.SqlExceptionMapper;
+import ru.arthu.currencyexchange.utils.mappers.SqlExceptionMapper;
 import ru.arthu.currencyexchange.model.Currency;
 import ru.arthu.currencyexchange.utils.ConnectionManager;
 

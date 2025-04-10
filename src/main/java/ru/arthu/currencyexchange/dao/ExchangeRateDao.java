@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 import ru.arthu.currencyexchange.exceptions.CannotUpdateException;
 import ru.arthu.currencyexchange.exceptions.ExchangeRateNotFoundException;
-import ru.arthu.currencyexchange.exceptions.db.SqlExceptionMapper;
+import ru.arthu.currencyexchange.utils.mappers.SqlExceptionMapper;
 import ru.arthu.currencyexchange.model.Currency;
 import ru.arthu.currencyexchange.model.ExchangeRate;
 import ru.arthu.currencyexchange.utils.ConnectionManager;
@@ -174,14 +174,14 @@ public class ExchangeRateDao implements Dao<ExchangeRate> {
                 rs.getLong("ExchangeRateId"),
                 new Currency(
                         rs.getLong("BaseCurrencyId"),
-                        rs.getString("BaseCurrencyName"),
                         rs.getString("BaseCurrencyCode"),
+                        rs.getString("BaseCurrencyName"),
                         rs.getString("BaseCurrencySign")
                 ),
                 new Currency(
                         rs.getLong("TargetCurrencyId"),
-                        rs.getString("TargetCurrencyName"),
                         rs.getString("TargetCurrencyCode"),
+                        rs.getString("TargetCurrencyName"),
                         rs.getString("TargetCurrencySign")
                 ),
                 rs.getBigDecimal("Rate")

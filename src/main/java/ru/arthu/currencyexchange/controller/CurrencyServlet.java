@@ -8,12 +8,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import ru.arthu.currencyexchange.dto.CurrencyDto;
 import ru.arthu.currencyexchange.dto.ErrorDto;
 import ru.arthu.currencyexchange.exceptions.CannotSaveException;
-import ru.arthu.currencyexchange.exceptions.CurrencyAlreadyExist;
+import ru.arthu.currencyexchange.exceptions.ObjectAlreadyExistException;
 import ru.arthu.currencyexchange.exceptions.CurrencyCodeNotFoundException;
 import ru.arthu.currencyexchange.exceptions.db.DatabaseUnavailableException;
 import ru.arthu.currencyexchange.exceptions.db.GeneralDatabaseException;
 import ru.arthu.currencyexchange.service.CurrencyService;
 import ru.arthu.currencyexchange.utils.ResponseUtil;
+import ru.arthu.currencyexchange.utils.mappers.CurrencyMapper;
 
 import java.io.IOException;
 import java.util.List;
@@ -76,14 +77,15 @@ public class CurrencyServlet extends HttpServlet {
             return;
         }
         try {
-            CurrencyDto newCurrency = currencyService.createCurrency(code, name, sign);
+            CurrencyDto newCurrency = currencyService.createCurrency(
+                    CurrencyMapper.createRequestDto(code, name, sign));
             ResponseUtil.writeJsonResponse(resp, newCurrency, HttpServletResponse.SC_CREATED);
         } catch (CannotSaveException e) {
             ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, new ErrorDto(
                     "Ошибка при сохранении валюты"
             ));
         }
-        catch (CurrencyAlreadyExist e) {
+        catch (ObjectAlreadyExistException e) {
             ResponseUtil.writeJsonError(resp, HttpServletResponse.SC_CONFLICT, new ErrorDto(
                     "Валюта с таким кодом уже существует"
             ));
