@@ -8,7 +8,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import ru.arthu.currencyexchange.dto.ErrorDto;
 import ru.arthu.currencyexchange.dto.ExchangeRateDto;
-import ru.arthu.currencyexchange.dto.ExchangeRateRequestDto;
 import ru.arthu.currencyexchange.exceptions.CurrencyCodeNotFoundException;
 import ru.arthu.currencyexchange.exceptions.ObjectAlreadyExistException;
 import ru.arthu.currencyexchange.exceptions.db.CheckConstraintViolationException;
