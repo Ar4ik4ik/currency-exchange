@@ -33,7 +33,7 @@ public class CurrencyServlet extends HttpServlet {
         req.setCharacterEncoding("UTF-8");
         try {
             String pathInfo = req.getPathInfo();
-            if (pathInfo == null || pathInfo.equals("/")) {
+            if (pathInfo == null) {
                 handleAllCurrencies(resp);
             } else {
                 String currencyCode = pathInfo.substring(1);
