@@ -50,6 +50,7 @@ public class ExchangeRatesServlet extends HttpServlet {
 
         if (isInvalidParam(baseCurrencyCode) || isInvalidParam(targetCurrencyCode) || isInvalidParam(rateStr)) {
             respondWithError(ErrorCode.MISSING_REQUIRED_PARAMS, resp, clazz);
+            return;
         }
 
         BigDecimal rate;

@@ -1,6 +1,7 @@
 package ru.arthu.currencyexchange.service;
 
 import ru.arthu.currencyexchange.dao.CurrencyDao;
+import ru.arthu.currencyexchange.dao.Dao;
 import ru.arthu.currencyexchange.dto.CurrencyDto;
 import ru.arthu.currencyexchange.dto.CurrencyRequestDto;
 import ru.arthu.currencyexchange.exceptions.ObjectAlreadyExistException;
@@ -12,9 +13,9 @@ import ru.arthu.currencyexchange.utils.mappers.CurrencyMapper;
 import java.util.List;
 
 public class CurrencyService {
-    private final CurrencyDao currencyDao;
+    private final Dao<Currency, String> currencyDao;
 
-    public CurrencyService(CurrencyDao currencyDao) {
+    public CurrencyService(Dao<Currency, String> currencyDao) {
         this.currencyDao = currencyDao;
     }
 

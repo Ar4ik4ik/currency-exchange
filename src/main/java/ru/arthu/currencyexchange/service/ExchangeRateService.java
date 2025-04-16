@@ -2,12 +2,14 @@ package ru.arthu.currencyexchange.service;
 
 import org.apache.commons.lang3.tuple.Pair;
 import ru.arthu.currencyexchange.dao.ExchangeRateDao;
+import ru.arthu.currencyexchange.dao.UpdatableDao;
 import ru.arthu.currencyexchange.dto.CurrencyDto;
 import ru.arthu.currencyexchange.dto.ExchangeRateDto;
 import ru.arthu.currencyexchange.dto.ExchangeRateRequestDto;
 import ru.arthu.currencyexchange.exceptions.ExchangeRateNotFoundException;
 import ru.arthu.currencyexchange.exceptions.ObjectAlreadyExistException;
 import ru.arthu.currencyexchange.exceptions.db.UniqueConstraintViolationException;
+import ru.arthu.currencyexchange.model.ExchangeRate;
 import ru.arthu.currencyexchange.utils.mappers.ExchangeRateMapper;
 
 import java.math.BigDecimal;
@@ -15,10 +17,10 @@ import java.util.List;
 
 public class ExchangeRateService {
 
-    private final ExchangeRateDao exchangeRateDao;
+    private final UpdatableDao<ExchangeRate, Pair<String, String>> exchangeRateDao;
     private final CurrencyService currencyService = CurrencyService.getInstance();
 
-    public ExchangeRateService(ExchangeRateDao exchangeRateDao) {
+    public ExchangeRateService(UpdatableDao<ExchangeRate, Pair<String, String>> exchangeRateDao) {
         this.exchangeRateDao = exchangeRateDao;
     }
 
@@ -56,7 +58,7 @@ public class ExchangeRateService {
 
         var currencyPair = getCurrencyPair(requestDto);
         var existingExchangeRate = exchangeRateDao.findByKey(
-                requestDto.baseCurrencyCode(), requestDto.targetCurrencyCode());
+                Pair.of(requestDto.baseCurrencyCode(), requestDto.targetCurrencyCode()));
         if (existingExchangeRate.isEmpty()) {
             throw new ExchangeRateNotFoundException("Валютная пара не найдена");
         } else {
@@ -71,7 +73,7 @@ public class ExchangeRateService {
 
     public ExchangeRateDto getExchangeRate(ExchangeRateRequestDto requestDto) {
         return exchangeRateDao.findByKey(
-                requestDto.baseCurrencyCode(), requestDto.targetCurrencyCode())
+                Pair.of(requestDto.baseCurrencyCode(), requestDto.targetCurrencyCode()))
                 .map(ExchangeRateMapper::fromModel)
                 .orElseThrow(() -> new ExchangeRateNotFoundException("..."));
 

@@ -2,6 +2,7 @@ package ru.arthu.currencyexchange.dao;
 
 import java.math.BigDecimal;
 
+import org.apache.commons.lang3.tuple.Pair;
 import ru.arthu.currencyexchange.exceptions.CannotUpdateException;
 import ru.arthu.currencyexchange.exceptions.ExchangeRateNotFoundException;
 import ru.arthu.currencyexchange.utils.mappers.SqlExceptionMapper;
@@ -19,7 +20,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 
-public class ExchangeRateDao implements Dao<ExchangeRate> {
+public class ExchangeRateDao implements UpdatableDao<ExchangeRate, Pair<String, String>> {
 
     private static final ExchangeRateDao INSTANCE = new ExchangeRateDao();
 
@@ -66,18 +67,6 @@ public class ExchangeRateDao implements Dao<ExchangeRate> {
         }
     }
 
-
-    private List<ExchangeRate> mapResultSetToExchangeRates(PreparedStatement statement) throws SQLException {
-        List<ExchangeRate> exchangeRates = new ArrayList<>();
-        try (var result = statement.executeQuery()) {
-            while (result.next()) {
-                exchangeRates.add(mapRow(result));
-            }
-        }
-        return exchangeRates;
-    }
-
-
     @Override
     public List<ExchangeRate> findAll() {
 
@@ -89,6 +78,20 @@ public class ExchangeRateDao implements Dao<ExchangeRate> {
         }
     }
 
+    public Optional<ExchangeRate> findByKey(Pair<String, String> codePair) {
+        return findOne(FIND_BY_CODE_PAIR, prepareByCodes(codePair.getLeft(), codePair.getRight()));
+    }
+
+    private List<ExchangeRate> mapResultSetToExchangeRates(PreparedStatement statement) throws SQLException {
+        List<ExchangeRate> exchangeRates = new ArrayList<>();
+        try (var result = statement.executeQuery()) {
+            while (result.next()) {
+                exchangeRates.add(mapRow(result));
+            }
+        }
+        return exchangeRates;
+    }
+
     private Consumer<PreparedStatement> prepareByCodes(String baseCode, String targetCode) {
         return statement -> {
             try {
@@ -98,10 +101,6 @@ public class ExchangeRateDao implements Dao<ExchangeRate> {
                 throw new RuntimeException(e);
             }
         };
-    }
-
-    public Optional<ExchangeRate> findByKey(String baseCode, String targetCode) {
-        return findOne(FIND_BY_CODE_PAIR, prepareByCodes(baseCode, targetCode));
     }
 
     private Optional<ExchangeRate> findOne(String sql, Consumer<PreparedStatement> preparer) {

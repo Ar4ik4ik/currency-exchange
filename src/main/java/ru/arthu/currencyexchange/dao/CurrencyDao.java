@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-public class CurrencyDao implements Dao<Currency> {
+public class CurrencyDao implements Dao<Currency, String> {
 
     private static final CurrencyDao INSTANCE = new CurrencyDao();
 
@@ -48,25 +48,6 @@ public class CurrencyDao implements Dao<Currency> {
         return currencyList;
     }
 
-    private Optional<Currency> findOne(String sql, Consumer<PreparedStatement> preparer) {
-        try (var connection = ConnectionManager.open();
-             var statement = connection.prepareStatement(sql)) {
-
-            preparer.accept(statement);
-
-            try (var resultSet = statement.executeQuery()) {
-                if (resultSet.next()) {
-                    return Optional.of(mapRow(resultSet));
-                }
-            }
-
-        } catch (SQLException e) {
-            throw SqlExceptionMapper.map(e);
-        }
-
-        return Optional.empty();
-    }
-
     public Optional<Currency> findByKey(String code) {
         return findOne(FIND_BY_CODE_SQL, stmt -> {
             try {
@@ -98,6 +79,25 @@ public class CurrencyDao implements Dao<Currency> {
         } catch (SQLException e) {
             throw SqlExceptionMapper.map(e);
         }
+    }
+
+    private Optional<Currency> findOne(String sql, Consumer<PreparedStatement> preparer) {
+        try (var connection = ConnectionManager.open();
+             var statement = connection.prepareStatement(sql)) {
+
+            preparer.accept(statement);
+
+            try (var resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return Optional.of(mapRow(resultSet));
+                }
+            }
+
+        } catch (SQLException e) {
+            throw SqlExceptionMapper.map(e);
+        }
+
+        return Optional.empty();
     }
 
     private Currency mapRow(ResultSet rs) throws SQLException {
