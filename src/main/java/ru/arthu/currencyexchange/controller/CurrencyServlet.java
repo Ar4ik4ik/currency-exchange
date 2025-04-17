@@ -18,6 +18,7 @@ import ru.arthu.currencyexchange.utils.mappers.CurrencyMapper;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.logging.Logger;
 
 import static ru.arthu.currencyexchange.utils.ResponseUtil.respondWithError;
 
@@ -32,17 +33,21 @@ public class CurrencyServlet extends HttpServlet {
             throws IOException {
         req.setCharacterEncoding("UTF-8");
         try {
+            String servletPath = req.getServletPath();
             String pathInfo = req.getPathInfo();
-            if (pathInfo == null) {
+
+            if (servletPath.equals("/currencies")) {
                 handleAllCurrencies(resp);
-            } else {
-                String currencyCode = pathInfo.substring(1);
-                if (currencyCode.isEmpty()) {
-                    respondWithError(ErrorCode.MISSING_REQUIRED_PARAMS, resp, clazz);
-                } else {
-                    handleCurrencyByCode(resp, currencyCode);
-                }
+                return;
             }
+
+            if (pathInfo == null || pathInfo.equals("/") || pathInfo.trim().isEmpty()) {
+                respondWithError(ErrorCode.MISSING_REQUIRED_PARAMS, resp, clazz);
+                return;
+            }
+
+            String currencyCode = pathInfo.substring(1);
+            handleCurrencyByCode(resp, currencyCode);
         } catch (CurrencyCodeNotFoundException e) {
             respondWithError(ErrorCode.CURRENCY_CODE_NOT_FOUND, resp, clazz);
         } catch (DatabaseUnavailableException | GeneralDatabaseException e) {
