@@ -13,7 +13,6 @@ public class ResponseUtil {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public static void writeJsonResponse(HttpServletResponse resp, Object data, int statusCode) throws IOException {
-        resp.setCharacterEncoding("UTF-8");
         resp.setContentType("application/json");
         resp.getWriter().write(objectMapper.writeValueAsString(data));
         resp.setStatus(statusCode);

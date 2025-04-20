@@ -57,7 +57,6 @@ public class ExchangeRateServlet extends HttpServlet {
     }
 
     protected void doPatch(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        req.setCharacterEncoding("UTF-8");
         String pathInfo = req.getPathInfo();
         String body = new String(req.getInputStream().readAllBytes());
         String[] params = body.split("=");

@@ -18,7 +18,6 @@ import ru.arthu.currencyexchange.utils.mappers.CurrencyMapper;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.logging.Logger;
 
 import static ru.arthu.currencyexchange.utils.ResponseUtil.respondWithError;
 
@@ -31,7 +30,6 @@ public class CurrencyServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws IOException {
-        req.setCharacterEncoding("UTF-8");
         try {
             String servletPath = req.getServletPath();
             String pathInfo = req.getPathInfo();
@@ -58,7 +56,6 @@ public class CurrencyServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws IOException {
-        req.setCharacterEncoding("UTF-8");
         String name = req.getParameter("name");
         String code = req.getParameter("code");
         String sign = req.getParameter("sign");
